@@ -8,7 +8,9 @@ const PORT = process.env.PORT || 3000;
 const cache = {};
 const CACHE_DURATION_MS = 5 * 60 * 1000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://incredible-jalebi-f65cf8.netlify.app'
+}));
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
