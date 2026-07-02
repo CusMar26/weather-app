@@ -52,6 +52,9 @@ app.get('/weather', async (req, res) => {
     const weatherData = await weatherResponse.json();
 
     console.log('Weather API response:', JSON.stringify(weatherData).slice(0, 200));
+    if (weatherData.error) {
+      return res.status(503).json({ error: weatherData.reason || 'Weather service unavailable.' });
+    } 
 
     const result = {
       name: place.name,
