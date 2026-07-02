@@ -21,6 +21,11 @@ app.use(limiter);
 
 app.get('/weather', async (req, res) => {
   const city = req.query.city;
+
+  if (!city) {
+    return res.status(400).json({ error: 'No city provided.' });
+  }
+
   const cacheKey = city.toLowerCase();
 
   if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_DURATION_MS) {
@@ -28,36 +33,41 @@ app.get('/weather', async (req, res) => {
     return res.json(cache[cacheKey].data);
   }
 
-  const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}`;
-  const geoResponse = await fetch(geoUrl);
-  const geoData = await geoResponse.json();
+  try {
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}`;
+    const geoResponse = await fetch(geoUrl);
+    const geoData = await geoResponse.json();
 
-  const place = geoData.results[0];
-  const lat = place.latitude;
-  const lon = place.longitude;
+    if (!geoData.results || geoData.results.length === 0) {
+      return res.status(404).json({ error: `Couldn't find a city called "${city}"` });
+    }
 
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
-  const weatherResponse = await fetch(weatherUrl);
-  const weatherData = await weatherResponse.json();
+    const place = geoData.results[0];
+    const lat = place.latitude;
+    const lon = place.longitude;
 
-  const result = {
-    name: place.name,
-    country: place.country,
-    temperature: weatherData.current_weather.temperature,
-    weathercode: weatherData.current_weather.weathercode,
-    forecast: weatherData.daily.time.map((date, i) => ({
-      date,
-      max: weatherData.daily.temperature_2m_max[i],
-      min: weatherData.daily.temperature_2m_min[i],
-      weathercode: weatherData.daily.weathercode[i]
-    }))
-  };
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+    const weatherResponse = await fetch(weatherUrl);
+    const weatherData = await weatherResponse.json();
 
-  cache[cacheKey] = { data: result, timestamp: Date.now() };
+    const result = {
+      name: place.name,
+      country: place.country,
+      temperature: weatherData.current_weather.temperature,
+      weathercode: weatherData.current_weather.weathercode,
+      forecast: weatherData.daily.time.map((date, i) => ({
+        date,
+        max: weatherData.daily.temperature_2m_max[i],
+        min: weatherData.daily.temperature_2m_min[i],
+        weathercode: weatherData.daily.weathercode[i]
+      }))
+    };
 
-  res.json(result);
-});
+    cache[cacheKey] = { data: result, timestamp: Date.now() };
+    res.json(result);
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  } catch (error) {
+    console.error('Server error:', error.message);
+    res.status(500).json({ error: 'Something went wrong on the server.' });
+  }
 });

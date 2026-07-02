@@ -142,7 +142,12 @@
         status.textContent = '';
 
         try {
-            const response = await fetch(`http://localhost:3000/weather?city=${city}`);
+            const response = await fetch(`https://weather-app-backend-k0p3.onrender.com/weather?city=${city}`);
+
+            if (!response.ok) {
+                throw new Error('Server is waking up, please try again in a few seconds.');
+            }
+
             const data = await response.json();
 
             if (data.error) {
